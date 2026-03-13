@@ -3,16 +3,35 @@ import { AppBar, Toolbar, Typography, IconButton, Box } from '@mui/material';
 import ScienceIcon from '@mui/icons-material/Science';
 import SettingsIcon from '@mui/icons-material/Settings';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import NotificationsIcon from '@mui/icons-material/Notifications';
+import Badge from '@mui/material/Badge';
+import AISearch from './AISearch';
 
-const Navbar: React.FC = () => {
+interface NavbarProps {
+  onNotificationsClick?: () => void;
+  notificationCount?: number;
+}
+
+const Navbar: React.FC<NavbarProps> = ({ onNotificationsClick, notificationCount = 0 }) => {
   return (
     <AppBar position="static">
       <Toolbar>
         <ScienceIcon sx={{ mr: 2 }} />
-        <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+        <Typography variant="h6" component="div" sx={{ mr: 4 }}>
           AI-LIMS
         </Typography>
-        <Box>
+        
+        {/* AI-Powered Search with Voice */}
+        <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'center' }}>
+          <AISearch />
+        </Box>
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <IconButton color="inherit" onClick={onNotificationsClick}>
+            <Badge badgeContent={notificationCount} color="error">
+              <NotificationsIcon />
+            </Badge>
+          </IconButton>
           <IconButton color="inherit">
             <SettingsIcon />
           </IconButton>

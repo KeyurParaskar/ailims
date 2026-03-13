@@ -3,6 +3,10 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import aiRoutes from './routes/ai';
 import workflowRoutes from './routes/workflows';
+import searchRoutes from './routes/search';
+import authRoutes from './routes/auth';
+import notificationsRoutes from './routes/notifications';
+import auditRoutes from './routes/audit';
 
 dotenv.config();
 
@@ -21,6 +25,10 @@ app.get('/api/health', (req: Request, res: Response) => {
 // Routes
 app.use('/api/ai', aiRoutes);
 app.use('/api/workflows', workflowRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/notifications', notificationsRoutes);
+app.use('/api/audit', auditRoutes);
 
 // Welcome route
 app.get('/api', (req: Request, res: Response) => {
