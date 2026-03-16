@@ -10,6 +10,7 @@ import auditRoutes from './routes/audit';
 import recommendationsRoutes from './routes/recommendations';
 import equipmentRoutes from './routes/equipment';
 import reportsRoutes from './routes/reports';
+import llmRoutes from './routes/llm';
 
 dotenv.config();
 
@@ -35,6 +36,7 @@ app.use('/api/audit', auditRoutes);
 app.use('/api/recommendations', recommendationsRoutes);
 app.use('/api/equipment', equipmentRoutes);
 app.use('/api/reports', reportsRoutes);
+app.use('/api/llm', llmRoutes);
 
 // Welcome route
 app.get('/api', (req: Request, res: Response) => {

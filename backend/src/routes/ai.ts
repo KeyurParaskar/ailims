@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { parseWorkflowFromNL, suggestNextStep } from '../services/openai';
+import { parseWorkflowFromNL, suggestNextStep, llmService } from '../services/llm';
 
 const router = Router();
 
@@ -13,7 +13,11 @@ router.post('/parse', async (req: Request, res: Response) => {
     }
 
     const workflow = await parseWorkflowFromNL(input);
-    res.json({ success: true, workflow });
+    res.json({ 
+      success: true, 
+      workflow,
+      provider: llmService.getActiveProvider(),
+    });
   } catch (error) {
     console.error('Error parsing workflow:', error);
     res.status(500).json({ error: 'Failed to parse workflow from natural language' });
@@ -30,7 +34,11 @@ router.post('/suggest-step', async (req: Request, res: Response) => {
     }
 
     const suggestion = await suggestNextStep(currentSteps, context || '');
-    res.json({ success: true, step: suggestion });
+    res.json({ 
+      success: true, 
+      step: suggestion,
+      provider: llmService.getActiveProvider(),
+    });
   } catch (error) {
     console.error('Error suggesting step:', error);
     res.status(500).json({ error: 'Failed to suggest next step' });
