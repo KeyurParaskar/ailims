@@ -186,7 +186,7 @@ router.put(
   authenticateToken,
   requireRole(ROLES.ADMIN),
   (req: AuthRequest, res: Response) => {
-    const userId = parseInt(req.params.id);
+    const userId = parseInt(req.params.id as string);
     const { role } = req.body;
 
     const userIndex = users.findIndex((u) => u.id === userId);
@@ -217,7 +217,7 @@ router.delete(
   authenticateToken,
   requireRole(ROLES.ADMIN),
   (req: AuthRequest, res: Response) => {
-    const userId = parseInt(req.params.id);
+    const userId = parseInt(req.params.id as string);
 
     const userIndex = users.findIndex((u) => u.id === userId);
     if (userIndex === -1) {

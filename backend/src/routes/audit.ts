@@ -32,7 +32,8 @@ router.get(
   authenticateToken,
   requireRole(ROLES.ADMIN, ROLES.LAB_MANAGER, ROLES.LAB_TECH),
   (req: AuthRequest, res: Response) => {
-    const { entityType, entityId } = req.params;
+    const entityType = req.params.entityType as string;
+    const entityId = req.params.entityId as string;
     const logs = getAuditLogs({ entityType, entityId });
     res.json({ logs, count: logs.length });
   }

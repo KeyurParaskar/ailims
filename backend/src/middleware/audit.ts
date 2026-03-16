@@ -77,7 +77,7 @@ export const getAuditLogs = (filters?: {
       logs = logs.filter((l) => l.entityId === filters.entityId);
     }
     if (filters.action) {
-      logs = logs.filter((l) => l.action.includes(filters.action));
+      logs = logs.filter((l) => l.action.includes(filters.action!));
     }
     if (filters.startDate) {
       logs = logs.filter((l) => l.timestamp >= filters.startDate!);
@@ -113,7 +113,7 @@ export const auditMiddleware = (entityType: string, action: string) => {
           req.user?.email,
           action,
           entityType,
-          req.params.id,
+          req.params.id as string | undefined,
           req.method === 'PUT' || req.method === 'DELETE' ? body.previous : undefined,
           req.method === 'POST' || req.method === 'PUT' ? req.body : undefined,
           {

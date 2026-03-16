@@ -71,7 +71,7 @@ router.post('/', authenticateToken, (req: AuthRequest, res: Response) => {
 
 // Mark notification as read
 router.put('/:id/read', authenticateToken, (req: AuthRequest, res: Response) => {
-  const notificationId = parseInt(req.params.id);
+  const notificationId = parseInt(req.params.id as string);
   const notification = notifications.find(
     (n) => n.id === notificationId && n.userId === req.user?.userId
   );
@@ -95,7 +95,7 @@ router.put('/read-all', authenticateToken, (req: AuthRequest, res: Response) => 
 
 // Delete notification
 router.delete('/:id', authenticateToken, (req: AuthRequest, res: Response) => {
-  const notificationId = parseInt(req.params.id);
+  const notificationId = parseInt(req.params.id as string);
   const index = notifications.findIndex(
     (n) => n.id === notificationId && n.userId === req.user?.userId
   );

@@ -75,5 +75,15 @@ ailims/
 └── README.md
 ```
 
+## Default Test Users
+
+The system comes with pre-configured test users for each role:
+
+| Email | Password | Role | Permissions |
+|-------|----------|------|-------------|
+| admin@ailims.com | admin123 | Admin | Full access, user management, all features |
+| manager@ailims.com | manager123 | Lab Manager | Workflow management, view audit logs, team oversight |
+| tech@ailims.com | tech123 | Lab Tech | Create/edit workflows, run samples, basic operations |
+
 ## Architecture & Implementation
 See [docs/plan.md](docs/plan.md) for detailed architecture and implementation phases.

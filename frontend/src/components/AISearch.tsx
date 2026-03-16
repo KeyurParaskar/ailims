@@ -194,9 +194,9 @@ const AISearch: React.FC<AISearchProps> = ({ onResultSelect }) => {
             {results.map((result) => (
               <ListItem
                 key={result.id}
-                button
                 onClick={() => handleResultClick(result)}
                 sx={{
+                  cursor: 'pointer',
                   '&:hover': {
                     bgcolor: 'action.hover',
                   },

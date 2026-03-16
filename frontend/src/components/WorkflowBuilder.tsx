@@ -20,7 +20,6 @@ import {
   Typography,
   TextField,
   Button,
-  Grid,
   Stepper,
   Step,
   StepLabel,
@@ -153,14 +152,14 @@ const WorkflowBuilder: React.FC = () => {
         </Paper>
       )}
 
-      <Grid container spacing={3}>
+      <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
         {/* Left Panel - Component Palette */}
-        <Grid item xs={12} md={3}>
+        <Box sx={{ flex: '1 1 250px', maxWidth: { xs: '100%', md: '25%' } }}>
           <ComponentPalette onAddComponent={addStep} />
-        </Grid>
+        </Box>
 
         {/* Center Panel - Workflow Canvas */}
-        <Grid item xs={12} md={6}>
+        <Box sx={{ flex: '2 1 400px', maxWidth: { xs: '100%', md: '50%' } }}>
           <Paper sx={{ p: 2 }}>
             <TextField
               fullWidth
@@ -237,10 +236,10 @@ const WorkflowBuilder: React.FC = () => {
               </Button>
             </Box>
           </Paper>
-        </Grid>
+        </Box>
 
         {/* Right Panel - Properties */}
-        <Grid item xs={12} md={3}>
+        <Box sx={{ flex: '1 1 250px', maxWidth: { xs: '100%', md: '25%' } }}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>
               Properties
@@ -249,8 +248,8 @@ const WorkflowBuilder: React.FC = () => {
               Select a step to edit its properties
             </Typography>
           </Paper>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
       {/* Snackbar for notifications */}
       <Snackbar
