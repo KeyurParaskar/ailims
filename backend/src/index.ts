@@ -7,6 +7,9 @@ import searchRoutes from './routes/search';
 import authRoutes from './routes/auth';
 import notificationsRoutes from './routes/notifications';
 import auditRoutes from './routes/audit';
+import recommendationsRoutes from './routes/recommendations';
+import equipmentRoutes from './routes/equipment';
+import reportsRoutes from './routes/reports';
 
 dotenv.config();
 
@@ -29,6 +32,9 @@ app.use('/api/search', searchRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/audit', auditRoutes);
+app.use('/api/recommendations', recommendationsRoutes);
+app.use('/api/equipment', equipmentRoutes);
+app.use('/api/reports', reportsRoutes);
 
 // Welcome route
 app.get('/api', (req: Request, res: Response) => {
