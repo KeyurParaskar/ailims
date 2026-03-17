@@ -103,8 +103,17 @@ feature/
 ```bash
 git clone https://github.com/your-org/zendash-launcher.git
 cd zendash-launcher
+
+# Bootstrap the Gradle wrapper JAR (required once after cloning)
+gradle wrapper --gradle-version 8.9
+
+# Build the debug APK
 ./gradlew assembleDebug
 ```
+
+> **Note:** The `gradle/wrapper/gradle-wrapper.jar` binary is intentionally excluded from source
+> control (see `.gitignore`). Run `gradle wrapper --gradle-version 8.9` once after cloning to
+> generate it, or let the GitHub Actions `gradle/actions/setup-gradle` step handle it in CI.
 
 ### Set as Default Launcher
 1. Install the debug APK on your device
