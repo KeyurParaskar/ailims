@@ -6,27 +6,30 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.zendash.feature.home.components.AppDock
 import com.zendash.feature.home.components.ClockWidget
 import com.zendash.feature.home.components.ScribbleCanvas
-import com.zendash.feature.home.components.SuggestionRow
+import com.zendash.feature.home.components.ScribbleHint
 import com.zendash.feature.home.components.ScribbleResultCard
-import com.zendash.feature.home.components.AppDock
+import com.zendash.feature.home.components.SuggestionRow
 
 /**
  * The main home screen — the face of ZenDash Launcher.
  *
  * Layout (top to bottom):
- *  1. [ClockWidget]       — time, date, next calendar event, media controls
- *  2. [SuggestionRow]     — top 4–6 contextual app suggestions
- *  3. [ScribbleCanvas]    — full-bleed gesture drawing area (core interaction)
- *  4. [ScribbleResultCard]— slides up when ML Kit has results
- *  5. [AppDock]           — up to 5 pinned apps at the bottom
+ *  1. [ClockWidget]        — time, date, next calendar event, media controls
+ *  2. [SuggestionRow]      — top 4–6 contextual app suggestions
+ *  3. [ScribbleHint]       — ghost "scribble here" hint (hidden after first use)
+ *  4. [ScribbleCanvas]     — full-bleed gesture drawing area (core interaction)
+ *  5. [ScribbleResultCard] — slides up when ML Kit has results
+ *  6. [AppDock]            — up to 5 pinned apps at the bottom
  *
- * All system insets are consumed here so the layout works on OEM gesture nav
- * bars (Xiaomi, Samsung One UI, stock Android) — fixing the ReZ bug.
+ * WindowInsets are consumed here via [WindowInsets.safeDrawing] so the layout
+ * works correctly with Xiaomi/Poco/Samsung gesture nav (the ReZ Launcher bug).
  */
 @Composable
 fun HomeScreen(
@@ -40,20 +43,17 @@ fun HomeScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            // Consume window insets to handle OEM gesture nav correctly
-            .windowInsetsPadding(WindowInsets.safeDrawing)
+            .windowInsetsPadding(WindowInsets.safeDrawing),
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // 1. Clock / Calendar / Media widget
+            // 1. Clock / date / calendar / media
             ClockWidget(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp, vertical = 16.dp),
-                onTap = { /* open clock app */ },
-                onCalendarTap = { /* open calendar */ },
             )
 
             // 2. Contextual app suggestions
@@ -67,34 +67,39 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Hint text — disappears after first scribble
+            // 3. Ghost scribble hint (disappears after first stroke)
             if (!uiState.hasScribbledBefore) {
-                ScribbleHint()
+                ScribbleHint(
+                    modifier = Modifier.padding(bottom = 24.dp),
+                )
             }
 
             Spacer(modifier = Modifier.weight(1f))
         }
 
-        // 3. Full-bleed scribble canvas (overlays the spacer region)
+        // 4. Full-bleed scribble canvas — overlays everything
+        // InkRecognitionManager is a @Singleton injected into the ViewModel
         ScribbleCanvas(
             modifier = Modifier.fillMaxSize(),
-            onScribbleResult = { query -> viewModel.onScribbleQuery(query) },
-            onDrawerGesture = onOpenAppDrawer,   // swipe-up from bottom triggers drawer
+            strokeColor = Color.White,
+            inkManager = viewModel.inkRecognitionManager,
+            onScribbleResult = { candidates -> viewModel.onScribbleCandidates(candidates) },
+            onDrawerGesture = onOpenAppDrawer,
         )
 
-        // 4. Search result card (slides up from bottom)
+        // 5. Search result card — slides up from just above the dock
         if (uiState.scribbleResults.isNotEmpty()) {
             ScribbleResultCard(
                 results = uiState.scribbleResults,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 88.dp),   // above the dock
+                    .padding(bottom = 88.dp, start = 16.dp, end = 16.dp),
                 onAppClick = { app -> viewModel.launchApp(app) },
                 onDismiss = { viewModel.clearScribbleResults() },
             )
         }
 
-        // 5. App dock
+        // 6. App dock
         AppDock(
             pinnedApps = uiState.pinnedApps,
             modifier = Modifier

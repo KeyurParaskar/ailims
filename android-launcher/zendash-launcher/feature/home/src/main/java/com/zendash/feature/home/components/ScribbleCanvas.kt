@@ -1,117 +1,213 @@
 package com.zendash.feature.home.components
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
+import com.google.mlkit.vision.digitalink.Ink
+import com.zendash.core.data.mlkit.InkRecognitionManager
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
- * The core interaction surface — a transparent Canvas that captures
- * finger strokes and feeds them to ML Kit for handwriting recognition.
+ * Full-bleed transparent gesture canvas — the primary interaction surface
+ * of ZenDash Launcher.
  *
- * Key differentiator vs ReZ Launcher:
- * ──────────────────────────────────
- * VELOCITY-SENSITIVE STROKE WIDTH:
- *   fast drag  → wide stroke (up to [MAX_STROKE_WIDTH] dp)
- *   slow drag  → thin hairline (down to [MIN_STROKE_WIDTH] dp)
+ * How it works
+ * ─────────────
+ * 1. The user draws anywhere on the screen. Each pointer move appends a
+ *    [StrokeSegment] to [strokes], rendered immediately on a Compose Canvas.
  *
- * This was a top user request that ReZ never implemented.
+ * 2. VELOCITY-SENSITIVE WIDTH: stroke width is proportional to pointer speed.
+ *    Fast swipe → [MAX_STROKE_WIDTH] dp. Slow drag → [MIN_STROKE_WIDTH] dp.
+ *    This restores the behaviour from the original Nokia Z Launcher that
+ *    ReZ never re-implemented (top user request).
  *
- * The trail fades out 800ms after the last stroke point is added.
+ * 3. Each stroke point is also recorded into an ML Kit [Ink.Builder]. After
+ *    [RECOGNITION_DEBOUNCE_MS] of inactivity, [InkRecognitionManager.recognize]
+ *    is called. The top candidates are passed to [onScribbleResult].
  *
- * [onScribbleResult] is called with the recognised text when ML Kit
- * returns (or when the text-based filter matches, as a fallback).
+ * 4. The ink trail fades out [FADE_DELAY_MS] after the last stroke ends.
  *
- * [onDrawerGesture] is called on a fast upward swipe from the bottom
- * third of the screen — opens the full app drawer.
+ * 5. A fast upward swipe from the bottom third of the screen triggers
+ *    [onDrawerGesture] (opens the full app drawer) instead of starting a
+ *    scribble. This mirrors the swipe-up-to-open behaviour users expect.
+ *
+ * [onScribbleResult] receives an ordered list of recognition candidates
+ * (e.g. ["a", "A", "α"]) — the ViewModel picks the best match.
  */
 @Composable
 fun ScribbleCanvas(
     modifier: Modifier = Modifier,
     strokeColor: Color = Color.White,
-    onScribbleResult: (String) -> Unit,
+    inkManager: InkRecognitionManager,
+    onScribbleResult: (List<String>) -> Unit,
     onDrawerGesture: () -> Unit,
 ) {
+    val scope = rememberCoroutineScope()
+
     val strokes = remember { mutableStateListOf<StrokeSegment>() }
     val velocityTracker = remember { VelocityTracker() }
     var alpha by remember { mutableFloatStateOf(1f) }
-    var lastStrokeTime by remember { mutableLongStateOf(0L) }
 
-    // Fade-out effect: after 800ms of inactivity, dissolve the trail
-    LaunchedEffect(lastStrokeTime) {
-        if (lastStrokeTime == 0L) return@LaunchedEffect
-        delay(800)
-        while (alpha > 0f) {
-            alpha = (alpha - 0.05f).coerceAtLeast(0f)
-            delay(16)
-        }
-        strokes.clear()
-        alpha = 1f
+    // ML Kit Ink builder — accumulates all strokes in the current gesture
+    var inkBuilder by remember { mutableStateOf(Ink.builder()) }
+    var strokeBuilder by remember { mutableStateOf<Ink.Stroke.Builder?>(null) }
+
+    // Debounce jobs
+    var recognitionJob by remember { mutableStateOf<Job?>(null) }
+    var fadeJob by remember { mutableStateOf<Job?>(null) }
+
+    // Prepare ML Kit model on first composition (downloads if needed)
+    LaunchedEffect(Unit) {
+        runCatching { inkManager.prepare("en-US") }
     }
 
-    Canvas(
-        modifier = modifier.pointerInput(Unit) {
-            detectDragGestures(
-                onDragStart = { offset ->
-                    velocityTracker.resetTracking()
-                    strokes.clear()
-                    alpha = 1f
-                },
-                onDrag = { change, _ ->
-                    velocityTracker.addPosition(change.uptimeMillis, change.position)
-                    val velocity = velocityTracker.calculateVelocity()
-                    val speed = kotlin.math.sqrt(
-                        velocity.x * velocity.x + velocity.y * velocity.y
-                    )
+    // Animated alpha for smooth dissolve (Compose animation)
+    val animatedAlpha by animateFloatAsState(
+        targetValue = alpha,
+        animationSpec = tween(durationMillis = 300),
+        label = "inkAlpha",
+    )
 
-                    // Map speed (px/s) → stroke width (dp)
-                    // ReZ users wanted exactly this behaviour
-                    val strokeWidth = lerp(
-                        MIN_STROKE_WIDTH,
-                        MAX_STROKE_WIDTH,
-                        (speed / MAX_SPEED).coerceIn(0f, 1f)
-                    )
+    fun resetInk() {
+        strokes.clear()
+        alpha = 1f
+        inkBuilder = Ink.builder()
+        strokeBuilder = null
+    }
 
-                    strokes.add(
-                        StrokeSegment(
-                            from = change.previousPosition,
-                            to = change.position,
-                            width = strokeWidth,
-                        )
-                    )
-                    lastStrokeTime = System.currentTimeMillis()
-                    change.consume()
-                },
-                onDragEnd = {
-                    // Submit the collected stroke points to ML Kit via the ViewModel.
-                    // For the MVP, we fall back to a single-letter heuristic.
-                    val text = strokes.toLetterHint()
-                    if (text.isNotBlank()) onScribbleResult(text)
-                },
-            )
+    fun scheduleRecognition() {
+        recognitionJob?.cancel()
+        recognitionJob = scope.launch {
+            delay(RECOGNITION_DEBOUNCE_MS)
+            val ink = inkBuilder.build()
+            if (ink.strokes.isEmpty()) return@launch
+            val candidates = runCatching { inkManager.recognize(ink) }.getOrDefault(emptyList())
+            if (candidates.isNotEmpty()) onScribbleResult(candidates)
         }
-    ) {
-        strokes.forEach { segment ->
-            drawLine(
-                color = strokeColor.copy(alpha = alpha),
-                start = segment.from,
-                end = segment.to,
-                strokeWidth = segment.width,
-                cap = StrokeCap.Round,
-            )
+    }
+
+    fun scheduleFade() {
+        fadeJob?.cancel()
+        fadeJob = scope.launch {
+            delay(FADE_DELAY_MS)
+            alpha = 0f
+            delay(350)   // wait for the animation to finish before clearing
+            strokes.clear()
+            alpha = 1f
+        }
+    }
+
+    Box(modifier = modifier) {
+        // Drag detector — captures scribble strokes
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectDragGestures(
+                        onDragStart = { startOffset ->
+                            // Cancel pending fade; start fresh stroke
+                            fadeJob?.cancel()
+                            recognitionJob?.cancel()
+                            velocityTracker.resetTracking()
+
+                            // Check for drawer gesture: fast upward swipe from bottom 30%
+                            // We check velocity in onDragEnd instead, so just record start.
+                            strokeBuilder = Ink.Stroke.builder()
+                            strokeBuilder!!.addPoint(
+                                Ink.Point.create(startOffset.x, startOffset.y)
+                            )
+                        },
+                        onDrag = { change, _ ->
+                            val pos = change.position
+                            velocityTracker.addPosition(change.uptimeMillis, pos)
+
+                            val velocity = velocityTracker.calculateVelocity()
+                            val speed = kotlin.math.sqrt(
+                                velocity.x * velocity.x + velocity.y * velocity.y
+                            )
+
+                            // Map speed → stroke width (the Nokia Z Launcher feature)
+                            val strokeWidth = lerp(
+                                MIN_STROKE_WIDTH,
+                                MAX_STROKE_WIDTH,
+                                (speed / MAX_SPEED).coerceIn(0f, 1f),
+                            )
+
+                            strokes.add(
+                                StrokeSegment(
+                                    from = change.previousPosition,
+                                    to = pos,
+                                    width = strokeWidth,
+                                )
+                            )
+
+                            // Record point with timestamp for ML Kit timing model
+                            strokeBuilder?.addPoint(
+                                Ink.Point.create(pos.x, pos.y, change.uptimeMillis)
+                            )
+
+                            change.consume()
+                        },
+                        onDragEnd = {
+                            val velocity = velocityTracker.calculateVelocity()
+
+                            // Detect swipe-up drawer gesture:
+                            // fast upward swipe (vy < 0, speed > threshold) from bottom third
+                            val lastY = strokes.lastOrNull()?.to?.y ?: Float.MAX_VALUE
+                            val screenHeight = size.height.toFloat()
+                            val isFromBottomThird = lastY > screenHeight * 0.66f
+                            val isUpwardSwipe = velocity.y < -DRAWER_SWIPE_THRESHOLD
+
+                            if (isFromBottomThird && isUpwardSwipe) {
+                                resetInk()
+                                onDrawerGesture()
+                                return@detectDragGestures
+                            }
+
+                            // Finalise the ML Kit stroke and schedule recognition
+                            strokeBuilder?.let { sb ->
+                                inkBuilder.addStroke(sb.build())
+                            }
+                            strokeBuilder = null
+
+                            scheduleRecognition()
+                            scheduleFade()
+                        },
+                        onDragCancel = {
+                            strokeBuilder = null
+                            scheduleFade()
+                        },
+                    )
+                }
+        ) {
+            strokes.forEach { seg ->
+                drawLine(
+                    color = strokeColor.copy(alpha = animatedAlpha),
+                    start = seg.from,
+                    end = seg.to,
+                    strokeWidth = seg.width,
+                    cap = StrokeCap.Round,
+                )
+            }
         }
     }
 }
+
+// ── Model ──────────────────────────────────────────────────────────────────
 
 data class StrokeSegment(
     val from: Offset,
@@ -119,14 +215,26 @@ data class StrokeSegment(
     val width: Float,
 )
 
-private fun List<StrokeSegment>.toLetterHint(): String {
-    // Placeholder — replaced by ML Kit Digital Ink recognition in Phase 1.
-    // Returns empty string until ML Kit integration is wired up.
-    return ""
-}
+// ── Helpers ────────────────────────────────────────────────────────────────
 
 private fun lerp(min: Float, max: Float, t: Float) = min + (max - min) * t
 
+// ── Constants ──────────────────────────────────────────────────────────────
+
+/** Minimum stroke width (slow drawing). */
 private const val MIN_STROKE_WIDTH = 4f
-private const val MAX_STROKE_WIDTH = 24f
-private const val MAX_SPEED = 8000f  // px/s at which stroke hits max width
+
+/** Maximum stroke width (fast drawing — approx thumb width). */
+private const val MAX_STROKE_WIDTH = 28f
+
+/** Pointer speed in px/s at which the stroke hits [MAX_STROKE_WIDTH]. */
+private const val MAX_SPEED = 7_000f
+
+/** Debounce before sending ink to ML Kit (ms). Balances speed vs accuracy. */
+private const val RECOGNITION_DEBOUNCE_MS = 300L
+
+/** How long after the last stroke before the trail starts fading (ms). */
+private const val FADE_DELAY_MS = 900L
+
+/** Minimum vertical velocity (px/s, upward = negative) to trigger drawer. */
+private const val DRAWER_SWIPE_THRESHOLD = 2_500f
