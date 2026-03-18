@@ -15,6 +15,7 @@ import llmRoutes from './routes/llm';
 import modulesRoutes from './platform/routes/modules';
 import dataRoutes from './platform/routes/data';
 import organizationsRoutes from './platform/routes/organizations';
+import generateRoutes from './platform/routes/generate';
 
 dotenv.config();
 
@@ -45,6 +46,7 @@ app.use('/api/llm', llmRoutes);
 app.use('/api/modules', modulesRoutes);
 app.use('/api/data', dataRoutes);
 app.use('/api/organizations', organizationsRoutes);
+app.use('/api/generate', generateRoutes);
 
 // Welcome route
 app.get('/api', (req: Request, res: Response) => {
