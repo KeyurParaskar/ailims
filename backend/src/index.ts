@@ -11,6 +11,10 @@ import recommendationsRoutes from './routes/recommendations';
 import equipmentRoutes from './routes/equipment';
 import reportsRoutes from './routes/reports';
 import llmRoutes from './routes/llm';
+// Meta-Platform Routes
+import modulesRoutes from './platform/routes/modules';
+import dataRoutes from './platform/routes/data';
+import organizationsRoutes from './platform/routes/organizations';
 
 dotenv.config();
 
@@ -37,6 +41,10 @@ app.use('/api/recommendations', recommendationsRoutes);
 app.use('/api/equipment', equipmentRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/llm', llmRoutes);
+// Meta-Platform Routes
+app.use('/api/modules', modulesRoutes);
+app.use('/api/data', dataRoutes);
+app.use('/api/organizations', organizationsRoutes);
 
 // Welcome route
 app.get('/api', (req: Request, res: Response) => {
